@@ -104,9 +104,10 @@ def main(directory: str, host: str, port: int, max_retries: int):
             script_string = None
             if file_path.endswith(".md"):
                 script_string = extract_python_scripts(file_path)
-            elif file_path.endswith(".py")
+            elif file_path.endswith(".py"):
                 script_string = read_python_file(file_path)
             else:
+                print(f"Skipping file {file_path}")
                 continue
 
             try:

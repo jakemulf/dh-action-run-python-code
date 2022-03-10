@@ -1,3 +1,3 @@
 from deephaven.TableTools import emptyTable
 
-result_0 = emptyTable(5)
+result0 = emptyTable(5)
