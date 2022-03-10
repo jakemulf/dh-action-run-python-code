@@ -47,10 +47,10 @@ def extract_python_scripts(file_path):
         in_python_script = False
         current_script = None
         for line in f.readlines():
-            if (PYTHON_START_TAG in line) and (not in_python_script):
+            if (line.startswith(PYTHON_START_TAG)) and (not in_python_script):
                 in_python_script = True
                 current_script = ""
-            elif (PYTHON_END_TAG in line) and in_python_script:
+            elif (line.startswith(PYTHON_END_TAG)) and in_python_script:
                 in_python_script = False
                 python_scripts.append(current_script)
             elif in_python_script:
