@@ -25,6 +25,7 @@ runs:
       run: |
         pip install --upgrade pip
         pip install -r ${{ github.action_path }}/requirements.txt
+        find . -name "*.py"
       shell: sh
     - name: Run python script
       run: python ${{ github.action_path }}/script.py ${{ inputs.directory }} ${{ inputs.host }} ${{ inputs.port }} ${{ inputs.max-retries }}
