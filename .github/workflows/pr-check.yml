@@ -1,0 +1,23 @@
+name: PR check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pr_check:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build
+        run: |
+          curl https://raw.githubusercontent.com/deephaven/deephaven-core/main/containers/python/docker-compose.yml > ./test/docker-compose.yml
+          docker-compose -f ./test/docker-compose.yml up -d
+      - name: Run PR check
+        uses: ./.
+        with:
+          directory: ./test
+          host: localhost
+          port: 10000
