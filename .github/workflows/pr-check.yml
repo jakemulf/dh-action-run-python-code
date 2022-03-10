@@ -21,3 +21,8 @@ jobs:
           directory: ./test
           host: localhost
           port: 10000
+       - name: Assert tables present
+         uses: deephaven/action-assert-dh-tables-present@main
+         with:
+           table-names: result0,result1,result2,result3,result4
+           host: localhost
