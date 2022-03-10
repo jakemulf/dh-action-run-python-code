@@ -18,7 +18,7 @@ jobs:
       - name: Run PR check
         uses: ./.
         with:
-          directory: ${{ github.action_path }}/test
+          directory: ./test
           host: localhost
           port: 10000
       - name: Assert tables present
