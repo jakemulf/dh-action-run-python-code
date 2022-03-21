@@ -103,7 +103,7 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
     session = None
     while (count < max_retries):
         try:
-            session = Session(host=host, port=port)#, session_type=session_type)
+            session = Session(host=host, port=port)#, session_type=session_type) #TODO: uncomment this out when https://github.com/deephaven/deephaven-core/pull/2107 is merged
             print("Connected to Deephaven")
             break
         except DHError as e:
