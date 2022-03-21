@@ -21,6 +21,7 @@ jobs:
           directory: ./test
           host: localhost
           port: 10000
+          session-type: python
       - name: Assert tables present
         uses: deephaven/action-assert-dh-tables-present@main
         with:

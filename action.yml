@@ -10,6 +10,9 @@ inputs:
   port:
     description: The port to access on the host
     required: true
+  session-type:
+    description: The `python` or `groovy` Deephaven session type
+    required: true
   max-retries:
     description: The maximum attempts to retry connecting to Deephaven
     required: false
@@ -27,5 +30,5 @@ runs:
         pip install -r ${{ github.action_path }}/requirements.txt
       shell: sh
     - name: Run python script
-      run: python ${{ github.action_path }}/script.py ${{ inputs.directory }} ${{ inputs.host }} ${{ inputs.port }} ${{ inputs.max-retries }}
+      run: python ${{ github.action_path }}/script.py ${{ inputs.directory }} ${{ inputs.host }} ${{ inputs.port }} ${{ inputs.session-type }} ${{ inputs.max-retries }}
       shell: sh
