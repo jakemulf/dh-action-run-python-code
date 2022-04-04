@@ -69,7 +69,7 @@ def read_markdown_file(file_path, start_tag, end_tag):
         in_script = False
         current_script = None
         for line in f.readlines():
-            if (line.startswith(start_tag)) and (not in_script):
+            if (line.startswith(start_tag)) and (not in_script) and (not "skip-test" in line):
                 in_script = True
                 current_script = ""
             elif (line.startswith(end_tag)) and in_script:
