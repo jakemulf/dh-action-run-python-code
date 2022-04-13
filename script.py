@@ -20,10 +20,10 @@ GROOVY_START_TAG = "```groovy"
 GROOVY_END_TAG = "```"
 GROOVY_EXTENSION = ".groovy"
 
-def session_type_to_tags_and_extension(session_type='python'):
+def session_type_to_tags_and_extension(session_type):
     """
     Converts the session type to the markdown start and end tags, and
-    the code file extension. Assumes "python" as the default
+    the code file extension. Only works for python and groovy
 
     Parameters:
         session_type (str): The session type
@@ -34,6 +34,8 @@ def session_type_to_tags_and_extension(session_type='python'):
         return (PYTHON_START_TAG, PYTHON_END_TAG, PYTHON_EXTENSION)
     elif session_type == 'groovy':
         return (GROOVY_START_TAG, GROOVY_END_TAG, GROOVY_EXTENSION)
+    else:
+        raise ValueError(f"Unrecognized parameter {session_type}")
 
 def read_code_file(file_path):
     """
@@ -80,22 +82,24 @@ def read_markdown_file(file_path, start_tag, end_tag):
 
     return "\n".join(scripts)
 
-def main(directory: str, host: str, port: int, session_type: str, max_retries: int = 5):
+def main(host: str, port: int, session_type: str, run_path: str, max_retries: int=5,
+            ignore_path: str=None, docker_compose: str=None, reset_between_files: bool=False):
     """
     Main method for the script. Reads each file line by line and grabs lines
     between the ```python ``` tags to run in Deephaven.
 
     Parameters:
-        directory (str): The path to the directory containing the files to run
         host (str): The host name of the Deephaven instance
         port (int): The port on the host to access
         session_type (str): The Deephaven session type
+        run_path (str): The path to the file containing a line separated list of files to run, or path to the directory containing file to run
         max_retries (int): The maximum attempts to retry connecting to Deephaven. Defaults to 5
-
+        ignore_path (str): The path to the file containing a line separated list of files to ignore. Defaults to None
+        docker_compose (str): The docker-compose command to launch and reset the server if needed. Defaults to None (TODO)
+        reset_between_files (bool): Boolean to reset the server via the docker-compose command. Defaults to False (TODO)
     Returns:
         None
     """
-
     print(f"Attempting to connect to host at {host} on port {port}")
 
     #Simple retry loop in case the server tries to launch before Deephaven is ready
@@ -103,7 +107,7 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
     session = None
     while (count < max_retries):
         try:
-            session = Session(host=host, port=port)#, session_type=session_type) #TODO: uncomment this out when https://github.com/deephaven/deephaven-core/pull/2107 is merged
+            session = Session(host=host, port=port, session_type=session_type)
             print("Connected to Deephaven")
             break
         except DHError as e:
@@ -122,12 +126,32 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
     #Grab the markdown tags and code files to look at based on the session type
     (start_tag, end_tag, code_file_extension) = session_type_to_tags_and_extension(session_type)
 
+    #Determine the files to read and ignore
+    read_files = []
+    if os.path.isfile(run_path):
+        with open(run_path) as f:
+            read_files = f.read().split("\n")
+    else:
+        read_files = os.popen(f"find {run_path} -type f | sort").read().split("\n")
+
+    ignore_paths = set()
+    if not (ignore_path is None):
+        if os.path.isfile(ignore_path):
+            with open(ignore_path) as f:
+                for file_path in f.read().split("\n"):
+                    ignore_paths.add(file_path)
+        else:
+            for file_path in os.popen(f"find {ignore_path} -type f | sort").read().split("\n"):
+                ignore_paths.add(file_path)
+
     #Track file results
     error_files = []
     success_files = []
+    skipped_files = []
 
-    for file_path in os.popen(f"find {directory} -type f | sort").read().split("\n"):
-        if len(file_path) > 0: #Skip empty paths. Sometimes this pops up with `find` commands
+    for file_path in read_files:
+        #Skip empty paths and ignore paths. Sometimes empty paths pop up with `find` commands
+        if len(file_path) > 0 and not (file_path in ignore_paths):
             print(f"Reading file {file_path}")
 
             #If file should be read, read the code. Otherwise skip the file
@@ -138,10 +162,12 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
                 script_string = read_code_file(file_path)
             else:
                 print(f"Skipping file {file_path}")
+                skipped_files.append(file_path)
                 continue
 
             if len(script_string) == 0:
                 print(f"No code found in {file_path}, skipping")
+                skipped_files.append(file_path)
             else:
                 #Code found, run it in Deephaven
                 try:
@@ -156,6 +182,9 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
                     print(f"Unexpected error when trying to run code in {file_path}")
                     error_files.append(file_path)
 
+    if len(skipped_files) > 0:
+        skipped_files_print = "\n".join(skipped_files)
+        print(f"The following files were skipped:\n{skipped_files_print}")
     if len(success_files) > 0:
         success_files_print = "\n".join(success_files)
         print(f"The following files ran without error:\n{success_files_print}")
@@ -164,26 +193,19 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
         print(f"Errors were found in the following files:\n{error_files_print}")
         sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
 
-usage = """
-usage: python script.py directory host port session_type -r max_retries
-"""
-
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("directory", help="Path to the directory of files to view")
-    parser.add_argument("host", help="The Deephaven host")
+    parser.add_argument("host", help="The Deephaven host", type=str)
     parser.add_argument("port", help="The port to access Deephaven on", type=int)
     parser.add_argument("session_type", help="The Deephaven session type", choices=["python", "groovy"])
+    parser.add_argument("run_path", help="Path to the file containing a line separated list of files to run, or directory to run", type=str)
     parser.add_argument("-mr", "--max_retries", help="The maximum number of retries when trying to connect to Deephaven", type=int, default=5)
     parser.add_argument("-rbf", "--reset_between_files", help="Boolean value on whether or not to reset the server between Runs. Defaults to false. Requires -dc/--docker_compose to be set", type=bool, default=False)
     parser.add_argument("-dc", "--docker_compose", help="docker-compose command to run to launch the server", type=str)
+    parser.add_argument("-ip", "--ignore_path", help="Path to the file containing a line separated list of files to ignore, or directory to ignore", type=str)
 
     args = parser.parse_args()
-    directory = args.directory
-    host = args.host
-    port = args.port
-    session_type = args.session_type
-    max_retries = args.max_retries
-
-    main(directory, host, port, session_type, max_retries=max_retries)
+    main(args.host, args.port, args.session_type, args.run_path, max_retries=args.max_retries,
+            ignore_path=args.ignore_path, docker_compose=args.docker_compose,
+            reset_between_files=args.reset_between_files)
