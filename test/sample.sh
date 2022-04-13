@@ -7,7 +7,7 @@ docker-compose -f ./test/docker-compose.yml up -d
 #Run a directory
 python source/script.py localhost 10000 python ./test/code/
 #Reset between runs
-python source/script.py localhost 10000 python ./test/files/run.txt -rbf true -dc "docker-compose -f ./test/docker-compose.yml"
+python source/script.py localhost 10000 python ./test/files/run.txt -rbf 0 -dc "docker-compose -f ./test/docker-compose.yml"
 docker-compose -f ./test/docker-compose.yml up -d
 #Should ignore the files in the sub_dir directory
 python source/script.py localhost 10000 python ./test/files/run.txt -ip ./test/files/ignore-files.txt
