@@ -1,7 +1,7 @@
 A markdown file showing how to create an empty table in Deephaven
 
 ```python
-from deephaven.TableTools import emptyTable
+from deephaven import empty_table
 
-result1 = emptyTable(5)
+result1 = empty_table(5)
 ```

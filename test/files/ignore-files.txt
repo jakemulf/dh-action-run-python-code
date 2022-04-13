@@ -1,0 +1,2 @@
+./test/code/sub_dir/empty_table.md
+./test/code/sub_dir/empty_table.py

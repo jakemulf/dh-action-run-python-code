@@ -16,12 +16,8 @@ jobs:
           curl https://raw.githubusercontent.com/deephaven/deephaven-core/main/containers/python/base/docker-compose.yml > ./test/docker-compose.yml
           docker-compose -f ./test/docker-compose.yml up -d
       - name: Run PR check
-        uses: ./.
-        with:
-          directory: ./test
-          host: localhost
-          port: 10000
-          session-type: python
+        run: sh test/integration.sh
+        shell: sh
       - name: Assert tables present
         uses: deephaven/action-assert-dh-tables-present@main
         with:

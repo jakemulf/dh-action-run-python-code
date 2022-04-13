@@ -1,0 +1,10 @@
+./test/code/
+./test/code/empty_table.txt
+./test/code/empty_table.md
+./test/code/empty_python_file.py
+./test/code/empty_table_with_ticks.py
+./test/code/sub_dir
+./test/code/sub_dir/empty_table.md
+./test/code/sub_dir/empty_table.py
+./test/code/no_code_markdown.md
+./test/code/empty_table.py
