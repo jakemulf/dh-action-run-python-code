@@ -80,7 +80,7 @@ def read_markdown_file(file_path, start_tag, end_tag):
 
     return "\n".join(scripts)
 
-def main(directory: str, host: str, port: int, session_type: str, max_retries: int):
+def main(directory: str, host: str, port: int, session_type: str, max_retries: int = 5):
     """
     Main method for the script. Reads each file line by line and grabs lines
     between the ```python ``` tags to run in Deephaven.
@@ -90,7 +90,7 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
         host (str): The host name of the Deephaven instance
         port (int): The port on the host to access
         session_type (str): The Deephaven session type
-        max_retries (int): The maximum attempts to retry connecting to Deephaven
+        max_retries (int): The maximum attempts to retry connecting to Deephaven. Defaults to 5
 
     Returns:
         None
@@ -122,8 +122,9 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
     #Grab the markdown tags and code files to look at based on the session type
     (start_tag, end_tag, code_file_extension) = session_type_to_tags_and_extension(session_type)
 
-    #Track files that caused an error
+    #Track file results
     error_files = []
+    success_files = []
 
     for file_path in os.popen(f"find {directory} -type f | sort").read().split("\n"):
         if len(file_path) > 0: #Skip empty paths. Sometimes this pops up with `find` commands
@@ -145,7 +146,7 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
                 #Code found, run it in Deephaven
                 try:
                     session.run_script(script_string)
-                    time.sleep(5)
+                    success_files.append(file_path)
                 except DHError as e:
                     print(e)
                     print(f"Deephaven error when trying to run code in {file_path}")
@@ -155,26 +156,34 @@ def main(directory: str, host: str, port: int, session_type: str, max_retries: i
                     print(f"Unexpected error when trying to run code in {file_path}")
                     error_files.append(file_path)
 
+    if len(success_files) > 0:
+        success_files_print = "\n".join(success_files)
+        print(f"The following files ran without error:\n{success_files_print}")
     if len(error_files) > 0:
         error_files_print = "\n".join(error_files)
-        print(f"Errors were found in the following files:\n {error_files_print}")
+        print(f"Errors were found in the following files:\n{error_files_print}")
         sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
 
 usage = """
-usage: python script.py directory host port session_type max_retries
+usage: python script.py directory host port session_type -r max_retries
 """
 
 if __name__ == '__main__':
-    if len(sys.argv) > 6:
-        sys.exit(usage)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("directory", help="Path to the directory of files to view")
+    parser.add_argument("host", help="The Deephaven host")
+    parser.add_argument("port", help="The port to access Deephaven on", type=int)
+    parser.add_argument("session_type", help="The Deephaven session type", choices=["python", "groovy"])
+    parser.add_argument("-mr", "--max_retries", help="The maximum number of retries when trying to connect to Deephaven", type=int, default=5)
+    parser.add_argument("-rbf", "--reset_between_files", help="Boolean value on whether or not to reset the server between Runs. Defaults to false. Requires -dc/--docker_compose to be set", type=bool, default=False)
+    parser.add_argument("-dc", "--docker_compose", help="docker-compose command to run to launch the server", type=str)
 
-    try:
-        directory = sys.argv[1]
-        host = sys.argv[2]
-        port = int(sys.argv[3])
-        session_type = sys.argv[4]
-        max_retries = int(sys.argv[5])
-    except:
-        sys.exit(usage)
+    args = parser.parse_args()
+    directory = args.directory
+    host = args.host
+    port = args.port
+    session_type = args.session_type
+    max_retries = args.max_retries
 
-    main(directory, host, port, session_type, max_retries)
+    main(directory, host, port, session_type, max_retries=max_retries)
