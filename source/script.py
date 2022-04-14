@@ -160,13 +160,16 @@ def main(host: str, port: int, session_type: str, run_path: str, max_retries: in
         max_retries (int): The maximum attempts to retry connecting to Deephaven. Defaults to 25
         ignore_path (str): The path to the file containing a line separated list of files to ignore. Defaults to None
         docker_compose (str): The docker-compose command to launch and reset the server if needed. Defaults to None
-        reset_between_files (int): Count to reset the server via the docker-compose command after the given number of files are ran. Defaults to None
+        reset_between_files (int): Count to reset the server via the docker-compose command after the given number of files are ran. Defaults to None. Requires docker_compose to be defined
     Returns:
         None
     """
+    if (reset_between_files is not None) and (docker_compose is None):
+        raise ValueError("docker_compose must be defined if reset_between_files is defined")
+
     start = time.time()
 
-    if not (docker_compose is None):
+    if docker_compose is not None:
         os.system(f"{docker_compose} up -d")
 
     session = connect_to_deephaven(host, port, max_retries, session_type)
@@ -220,7 +223,7 @@ def main(host: str, port: int, session_type: str, run_path: str, max_retries: in
                     error_files.append(file_path)
 
                 #If reset is enabled, shut down and restart
-                if not (reset_between_files is None) and (file_run_count > reset_between_files) and not (docker_compose is None):
+                if (reset_between_files is not None) and (file_run_count > reset_between_files):
                     os.system(f"{docker_compose} stop")
                     os.system(f"{docker_compose} up -d")
                     session = connect_to_deephaven(host, port, max_retries, session_type)
