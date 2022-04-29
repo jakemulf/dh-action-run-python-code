@@ -1,5 +1,5 @@
 """
-script.py
+run_code.py
 
 Python script to run the code in the given directory in Deephaven.
 

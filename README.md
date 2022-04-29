@@ -4,7 +4,7 @@ This package runs code against Deephaven. It works with both code files (current
 
 ## Usage
 
-Run `python source/script.py -h` to display the usage of the package
+Run `python source/run_code.py -h` to display the usage of the package
 
 ## Overview
 
