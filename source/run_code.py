@@ -109,7 +109,7 @@ def read_markdown_file(file_path, start_tag, end_tag):
             elif in_script:
                 current_script += line
 
-    #TODO: track the test-sets?
+    #TODO: track the test-sets? track the lines of code in the markdown files?
     should_run_list = no_test_set_should_run + [test_set_should_run[key] for key in test_set_should_run.keys()]
     should_fail_list = no_test_set_should_fail + [test_set_should_fail[key] for key in test_set_should_fail.keys()]
     return {
@@ -181,8 +181,8 @@ def connect_to_deephaven(host: str, port: int, max_retries: int, session_type: s
 
     return session
 
-def main(host: str, port: int, session_type: str, run_path: str, max_retries: int=25,
-            ignore_path: str=None, docker_compose: str=None, reset_between_files: int=None):
+def main(host: str, port: int, session_type: str, read_files: set, max_retries: int=25,
+            ignore_paths: set=None, docker_compose: str=None, reset_between_files: int=None):
     """
     Main method for the script. Reads each file line by line and grabs lines
     between the ```python ``` tags to run in Deephaven.
@@ -191,30 +191,27 @@ def main(host: str, port: int, session_type: str, run_path: str, max_retries: in
         host (str): The host name of the Deephaven instance
         port (int): The port on the host to access
         session_type (str): The Deephaven session type
-        run_path (str): The path to the file containing a line separated list of files to run, or path to the directory containing file to run
+        read_files (set<str>): A set of strings representing files to read
         max_retries (int): The maximum attempts to retry connecting to Deephaven. Defaults to 25
-        ignore_path (str): The path to the file containing a line separated list of files to ignore. Defaults to None
+        ignore_paths (set<str>): A set of strings representing files to skip
         docker_compose (str): The docker-compose command to launch and reset the server if needed. Defaults to None
         reset_between_files (int): Count to reset the server via the docker-compose command after the given number of files are ran. Defaults to None. Requires docker_compose to be defined
     Returns:
         None
     """
-    if (reset_between_files is not None) and (docker_compose is None):
-        raise ValueError("docker_compose must be defined if reset_between_files is defined")
-
     start = time.time()
 
+    if (reset_between_files is not None) and (docker_compose is None):
+        raise ValueError("docker_compose must be defined if reset_between_files is defined")
     if docker_compose is not None:
         os.system(f"{docker_compose} up -d")
+    if ignore_paths is None:
+        ignore_paths = set()
 
     session = connect_to_deephaven(host, port, max_retries, session_type)
 
     #Grab the markdown tags and code files to look at based on the session type
     (start_tag, end_tag, code_file_extension) = session_type_to_tags_and_extension(session_type)
-
-    #Determine the files to read and ignore
-    read_files = path_to_files(run_path)
-    ignore_paths = path_to_files(ignore_path)
 
     #Track file results
     error_files = []
@@ -328,6 +325,6 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.host, args.port, args.session_type, args.run_path, max_retries=args.max_retries,
-            ignore_path=args.ignore_path, docker_compose=args.docker_compose,
+    main(args.host, args.port, args.session_type, path_to_files(args.run_path), max_retries=args.max_retries,
+            ignore_paths=path_to_files(args.ignore_path), docker_compose=args.docker_compose,
             reset_between_files=args.reset_between_files)
