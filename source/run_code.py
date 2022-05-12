@@ -11,6 +11,7 @@ from pydeephaven import Session, DHError
 import sys
 import time
 import os
+import re
 
 PYTHON_START_TAG = "```python"
 PYTHON_END_TAG = "```"
@@ -46,17 +47,23 @@ def read_code_file(file_path):
 
     Returns:
         str: String representation of the code file contents
+        dict: A dictionary of code snippets to run, and code snippets that should fail.
+            Distinguished by the "should_run" and "should_fail" keys
     """
     script_string = None
     with open(file_path) as f:
         script_string = f.read()
 
-    return script_string
+    return {
+        "should_run": [script_string],
+        "should_fail": []
+    }
 
 def read_markdown_file(file_path, start_tag, end_tag):
     """
     Extracts the code scripts between the given tags in the markdown file at the given path, and
-    returns them combined as a single string
+    returns them as a list of strings. Code snippets are treated as separate entities, unless
+    the `test-set` tag is used in the code snippet.
 
     Parameters:
         file_path (str): The path to the markdown file
@@ -64,23 +71,51 @@ def read_markdown_file(file_path, start_tag, end_tag):
         end_tag (str): The tag to represent the end of a code block
 
     Returns:
-        str: The combined string of code scripts in the markdown file
+        dict: A dictionary of code snippets to run, and code snippets that should fail.
+            Distinguished by the "should_run" and "should_fail" keys
     """
-    scripts = []
+    no_test_set_should_run = []
+    test_set_should_run = {}
+    no_test_set_should_fail = []
+    test_set_should_fail = {}
+    test_set = None
+    should_fail = None
+
     with open(file_path) as f:
         in_script = False
         current_script = None
         for line in f.readlines():
-            if (line.startswith(start_tag)) and (not in_script) and (not "skip-test" in line):
+            skip_line = ("skip-test" in line) or ("syntax" in line)
+            if (line.startswith(start_tag)) and (not in_script) and (not skip_line):
                 in_script = True
+                should_fail = "should-fail" in line
                 current_script = ""
+                if "test-set" in line:
+                    #Grab just the first test-set
+                    test_set = int(re.findall(r'test-set=(\d+)', line)[0])
             elif (line.startswith(end_tag)) and in_script:
                 in_script = False
-                scripts.append(current_script)
+
+                if test_set is None:
+                    current_list = no_test_set_should_fail if should_fail else no_test_set_should_run
+                    current_list.append(current_script)
+                else:
+                    current_dictionary = test_set_should_fail if should_fail else test_set_should_run
+                    if not (test_set in current_dictionary.keys()):
+                        current_dictionary[test_set] = ""
+                    current_dictionary[test_set] += current_script
+
+                test_set = None
             elif in_script:
                 current_script += line
 
-    return "\n".join(scripts)
+    #TODO: track the test-sets?
+    should_run_list = no_test_set_should_run + [test_set_should_run[key] for key in test_set_should_run.keys()]
+    should_fail_list = no_test_set_should_fail + [test_set_should_fail[key] for key in test_set_should_fail.keys()]
+    return {
+        "should_run": should_run_list,
+        "should_fail": should_fail_list
+    }
 
 def path_to_files(path: str):
     """
@@ -194,42 +229,75 @@ def main(host: str, port: int, session_type: str, run_path: str, max_retries: in
             print(f"Reading file {file_path}")
 
             #If file should be read, read the code. Otherwise skip the file
-            script_string = None
+            script_strings = None
             if file_path.endswith(".md"):
-                script_string = read_markdown_file(file_path, start_tag, end_tag)
+                script_strings = read_markdown_file(file_path, start_tag, end_tag)
             elif file_path.endswith(code_file_extension):
-                script_string = read_code_file(file_path)
+                script_strings = read_code_file(file_path)
             else:
-                print(f"Skipping file {file_path}")
+                print(f"{file_path} does not end with a supported extension. Skipping")
                 skipped_files.append(file_path)
                 continue
 
-            if len(script_string) == 0:
+#TODO: Bundle this duplicated code as a function
+            skipped = True
+            failed = False
+            for script_string in script_strings["should_run"]:
+                if len(script_string) != 0:
+                    #Code found, run it in Deephaven
+                    try:
+                        skipped = False
+                        file_run_count += 1
+                        session.run_script(script_string)
+                    except DHError as e:
+                        print(e)
+                        print(f"Deephaven error when trying to run code in {file_path}")
+                        failed = True
+                    except Exception as e:
+                        print(e)
+                        print(f"Unexpected error when trying to run code in {file_path}")
+                        failed = True
+
+                    #If reset is enabled, shut down and restart
+                    if (reset_between_files is not None) and (file_run_count > reset_between_files):
+                        os.system(f"{docker_compose} stop")
+                        os.system(f"{docker_compose} up -d")
+                        session = connect_to_deephaven(host, port, max_retries, session_type)
+                        file_run_count = 0
+            for script_string in script_strings["should_fail"]:
+                if len(script_string) != 0:
+                    #Code found, run it in Deephaven
+                    try:
+                        skipped = False
+                        file_run_count += 1
+                        session.run_script(script_string)
+                        failed = True #This will be skipped if run_script raises an error
+                    except DHError as e:
+                        pass #Failed as expected
+                    except Exception as e:
+                        print(e)
+                        print(f"Unexpected error when trying to run code in {file_path}")
+                        failed = True
+
+                    #If reset is enabled, shut down and restart
+                    if (reset_between_files is not None) and (file_run_count > reset_between_files):
+                        os.system(f"{docker_compose} stop")
+                        os.system(f"{docker_compose} up -d")
+                        session = connect_to_deephaven(host, port, max_retries, session_type)
+                        file_run_count = 0
+
+            if skipped:
                 print(f"No code found in {file_path}, skipping")
                 skipped_files.append(file_path)
             else:
-                #Code found, run it in Deephaven
-                try:
-                    file_run_count += 1
-                    session.run_script(script_string)
+                if failed:
+                    error_files.append(file_path)
+                else:
                     success_files.append(file_path)
-                except DHError as e:
-                    print(e)
-                    print(f"Deephaven error when trying to run code in {file_path}")
-                    error_files.append(file_path)
-                except Exception as e:
-                    print(e)
-                    print(f"Unexpected error when trying to run code in {file_path}")
-                    error_files.append(file_path)
 
-                #If reset is enabled, shut down and restart
-                if (reset_between_files is not None) and (file_run_count > reset_between_files):
-                    os.system(f"{docker_compose} stop")
-                    os.system(f"{docker_compose} up -d")
-                    session = connect_to_deephaven(host, port, max_retries, session_type)
-                    file_run_count = 0
+
         else:
-            print(f"Skipping file {file_path}")
+            print(f"{file_path} flagged to skip. Skipping")
             skipped_files.append(file_path)
 
     end = time.time()
