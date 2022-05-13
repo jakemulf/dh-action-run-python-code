@@ -181,10 +181,10 @@ def connect_to_deephaven(host: str, port: int, max_retries: int, session_type: s
 
     return session
 
-def main(host: str, port: int, session_type: str, read_files: set, max_retries: int=25,
+def run_code_main(host: str, port: int, session_type: str, read_files: set, max_retries: int=25,
             ignore_paths: set=None, docker_compose: str=None, reset_between_files: int=None):
     """
-    Main method for the script. Reads each file line by line and grabs lines
+    Main method for the run_code.py script. Reads each file line by line and grabs lines
     between the ```python ``` tags to run in Deephaven.
 
     Parameters:
@@ -197,7 +197,7 @@ def main(host: str, port: int, session_type: str, read_files: set, max_retries: 
         docker_compose (str): The docker-compose command to launch and reset the server if needed. Defaults to None
         reset_between_files (int): Count to reset the server via the docker-compose command after the given number of files are ran. Defaults to None. Requires docker_compose to be defined
     Returns:
-        None
+        tuple(list,list,list): A list of success, skipped, and failed files ran.
     """
     start = time.time()
 
@@ -300,16 +300,7 @@ def main(host: str, port: int, session_type: str, read_files: set, max_retries: 
     end = time.time()
     print(f"{end - start} seconds to run")
 
-    if len(skipped_files) > 0:
-        skipped_files_print = "\n".join(skipped_files)
-        print(f"The following files were skipped:\n{skipped_files_print}")
-    if len(success_files) > 0:
-        success_files_print = "\n".join(success_files)
-        print(f"The following files ran without error:\n{success_files_print}")
-    if len(error_files) > 0:
-        error_files_print = "\n".join(error_files)
-        print(f"Errors were found in the following files:\n{error_files_print}")
-        sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
+    return (success_files, skipped_files, error_files)
 
 if __name__ == '__main__':
     import argparse
@@ -325,6 +316,17 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args.host, args.port, args.session_type, path_to_files(args.run_path), max_retries=args.max_retries,
+    (success_files, skipped_files, error_files) = run_code_main(args.host, args.port, args.session_type, path_to_files(args.run_path), max_retries=args.max_retries,
             ignore_paths=path_to_files(args.ignore_path), docker_compose=args.docker_compose,
             reset_between_files=args.reset_between_files)
+
+    if len(skipped_files) > 0:
+        skipped_files_print = "\n".join(skipped_files)
+        print(f"The following files were skipped:\n{skipped_files_print}")
+    if len(success_files) > 0:
+        success_files_print = "\n".join(success_files)
+        print(f"The following files ran without error:\n{success_files_print}")
+    if len(error_files) > 0:
+        error_files_print = "\n".join(error_files)
+        print(f"Errors were found in the following files:\n{error_files_print}")
+        sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
