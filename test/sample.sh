@@ -15,6 +15,3 @@ python source/run_code.py localhost 10000 python ./test/files/run.txt -ip ./test
 python source/run_code.py localhost 10000 python ./test/files/run.txt -ip ./test/files/ignore-directories.txt
 #Run a file for the PR check
 python source/run_code.py localhost 10000 python ./test/files/run.txt
-
-docker-compose -f ./test/docker-compose.yml down
-rm ./test/docker-compose.yml
