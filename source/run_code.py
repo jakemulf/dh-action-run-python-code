@@ -46,7 +46,6 @@ def read_code_file(file_path):
         file_path (str): The path to the code file to read
 
     Returns:
-        str: String representation of the code file contents
         dict: A dictionary of code snippets to run, and code snippets that should fail.
             Distinguished by the "should_run" and "should_fail" keys
     """
@@ -167,13 +166,9 @@ def connect_to_deephaven(host: str, port: int, max_retries: int, session_type: s
             print("Connected to Deephaven")
             break
         except DHError as e:
-            print("Failed to connect to Deephaven... Waiting to try again")
-            print(e)
             time.sleep(1)
             count += 1
         except Exception as e:
-            print("Unknown error when connecting to Deephaven... Waiting to try again")
-            print(e)
             time.sleep(1)
             count += 1
     if session is None:
@@ -223,8 +218,6 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
     for file_path in read_files:
         #Skip empty paths and ignore paths. Sometimes empty paths pop up with `find` commands
         if len(file_path) > 0 and not (file_path in ignore_paths):
-            print(f"Reading file {file_path}")
-
             #If file should be read, read the code. Otherwise skip the file
             script_strings = None
             if file_path.endswith(".md"):
@@ -232,7 +225,6 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
             elif file_path.endswith(code_file_extension):
                 script_strings = read_code_file(file_path)
             else:
-                print(f"{file_path} does not end with a supported extension. Skipping")
                 skipped_files.append(file_path)
                 continue
 
@@ -284,7 +276,6 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
                         file_run_count = 0
 
             if skipped:
-                print(f"No code found in {file_path}, skipping")
                 skipped_files.append(file_path)
             else:
                 if failed:
@@ -294,11 +285,14 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
 
 
         else:
-            print(f"{file_path} flagged to skip. Skipping")
             skipped_files.append(file_path)
 
     end = time.time()
     print(f"{end - start} seconds to run")
+
+    #If reset is enabled, shut down
+    if (reset_between_files is not None):
+        os.system(f"{docker_compose} stop")
 
     return (success_files, skipped_files, error_files)
 
@@ -321,8 +315,7 @@ if __name__ == '__main__':
             reset_between_files=args.reset_between_files)
 
     if len(skipped_files) > 0:
-        skipped_files_print = "\n".join(skipped_files)
-        print(f"The following files were skipped:\n{skipped_files_print}")
+        print(f"Skipped {len(skipped_files)} files")
     if len(success_files) > 0:
         success_files_print = "\n".join(success_files)
         print(f"The following files ran without error:\n{success_files_print}")

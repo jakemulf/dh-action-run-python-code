@@ -73,8 +73,7 @@ def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, 
                 docker_compose="docker-compose", reset_between_files=reset_between_files)
 
         if len(skipped_files) > 0:
-            skipped_files_print = "\n".join(skipped_files)
-            print(f"The following files were skipped:\n{skipped_files_print}")
+            print(f"Skipped {len(skipped_files)} files")
         if len(success_files) > 0:
             success_files_print = "\n".join(success_files)
             print(f"The following files ran without error:\n{success_files_print}")
@@ -83,6 +82,7 @@ def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, 
             print(f"Errors were found in the following files:\n{error_files_print}")
             failed = True
 
+    os.system("rm docker-compose.yml")
     if failed:
         sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
 
