@@ -37,6 +37,12 @@ services:
     ports:
       - "${DEEPHAVEN_PORT:-10000}:10000"
 
+  examples:
+    image: ghcr.io/deephaven/examples:latest
+    volumes:
+      - ./data:/data
+    command: initialize
+
 volumes:
     web-tmp:
     api-cache:
