@@ -6,10 +6,6 @@ This script is used to validate the code in regards to the special rules for the
 The markdown files in the repo are split based on the `docker-config` tags in the code snippets.
 If no `docker-config` is found, then default is assumed. These are then written to files used to
 supply the `run_path` parameter to the code runner.
-
-NOTE: Using "VERSION=edge docker-compose" for the `docker_compose_command` parameter does not work.
-You need to set parameters like VERSION with the python command running this script
-    ex: VERSION=edge python source/deephaven_io_code.py ...
 """
 from run_code import run_code_main
 
@@ -33,7 +29,7 @@ DOCKER_CONFIG_TAG_TO_IMAGE = {
     "default_groovy": DOCKER_DEFAULT_GROOVY
 }
 
-def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, reset_between_files: int):
+def deephaven_io_code_main(deephaven_io_path: str, reset_between_files: int):
     """
     Main method for the deephaven_io_code.py file. Reads all the markdown files in the directory, organizes them
     by `docker-config` tags, and runs the `run_code` main method against each set of markdown files.
@@ -41,8 +37,6 @@ def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, 
     Parameters:
         deephaven_io_path (str): The path to the markdown files to run in the deephaven.io project.
             This should be something like deephaven.io/core/docs for community docs
-        docker_compose_command (str): The docker-compose command to launch each image.
-            This should be something like "docker-compose -f ./docker-compose.yml"
         reset_between_files (int): Code snippet count for resetting the docker instance. Set to 0
             to reset between every code snippet, None to not reset, or any number to reset
             after that number of code snippet runs
@@ -75,8 +69,7 @@ def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, 
         if len(skipped_files) > 0:
             print(f"Skipped {len(skipped_files)} files")
         if len(success_files) > 0:
-            success_files_print = "\n".join(success_files)
-            print(f"The following files ran without error:\n{success_files_print}")
+            print(f"{len(success_files)} files ran without errors")
         if len(error_files) > 0:
             error_files_print = "\n".join(error_files)
             print(f"Errors were found in the following files:\n{error_files_print}")
@@ -87,20 +80,19 @@ def deephaven_io_code_main(deephaven_io_path: str, docker_compose_command: str, 
         sys.exit("At least 1 file failed to run. Check the logs for information on what failed")
 
 usage = """
-usage: python deephaven_io_code.py <deephaven_io_path> <docker_compose_command> <reset_between_files>
+usage: python deephaven_io_code.py <deephaven_io_path> <reset_between_files>
 """
 
 if __name__ == '__main__':
     import sys
 
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 3:
         sys.exit(usage)
 
     try:
         deephaven_io_path = sys.argv[1]
-        docker_compose_command = sys.argv[2]
-        reset_between_files = int(sys.argv[3])
+        reset_between_files = int(sys.argv[2])
     except:
         sys.exit(usage)
 
-    deephaven_io_code_main(deephaven_io_path, docker_compose_command, reset_between_files)
+    deephaven_io_code_main(deephaven_io_path, reset_between_files)

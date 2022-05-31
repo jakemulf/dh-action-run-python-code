@@ -16,10 +16,22 @@ import re
 PYTHON_START_TAG = "```python"
 PYTHON_END_TAG = "```"
 PYTHON_EXTENSION = ".py"
+PYTHON_STARTUP = """
+_old_globals = set(globals())
+"""
+PYTHON_TEARDOWN = """
+for _item in list(set(globals()) - set(_old_globals)): del globals()[_item]; del _item
+"""
 
 GROOVY_START_TAG = "```groovy"
 GROOVY_END_TAG = "```"
 GROOVY_EXTENSION = ".groovy"
+GROOVY_STARTUP = """
+_old_globals = new LinkedHashSet(getBinding().getVariables().keySet())
+"""
+GROOVY_TEARDOWN = """
+getBinding().getVariables().keySet().retainAll(_old_globals)
+"""
 
 def session_type_to_tags_and_extension(session_type):
     """
@@ -32,9 +44,9 @@ def session_type_to_tags_and_extension(session_type):
         tuple: The start tag, end tag, and code extension
     """
     if session_type == 'python':
-        return (PYTHON_START_TAG, PYTHON_END_TAG, PYTHON_EXTENSION)
+        return (PYTHON_START_TAG, PYTHON_END_TAG, PYTHON_EXTENSION, PYTHON_STARTUP, PYTHON_TEARDOWN)
     elif session_type == 'groovy':
-        return (GROOVY_START_TAG, GROOVY_END_TAG, GROOVY_EXTENSION)
+        return (GROOVY_START_TAG, GROOVY_END_TAG, GROOVY_EXTENSION, GROOVY_STARTUP, GROOVY_TEARDOWN)
     else:
         raise ValueError(f"Unrecognized parameter {session_type}")
 
@@ -206,7 +218,7 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
     session = connect_to_deephaven(host, port, max_retries, session_type)
 
     #Grab the markdown tags and code files to look at based on the session type
-    (start_tag, end_tag, code_file_extension) = session_type_to_tags_and_extension(session_type)
+    (start_tag, end_tag, code_file_extension, startup_code, teardown_code) = session_type_to_tags_and_extension(session_type)
 
     #Track file results
     error_files = []
@@ -233,6 +245,7 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
             failed = False
             for script_string in script_strings["should_run"]:
                 if len(script_string) != 0:
+                    session.run_script(startup_code)
                     #Code found, run it in Deephaven
                     try:
                         skipped = False
@@ -247,6 +260,7 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
                         print(f"Unexpected error when trying to run code in {file_path}")
                         failed = True
 
+                    session.run_script(teardown_code)
                     #If reset is enabled, shut down and restart
                     if (reset_between_files is not None) and (file_run_count > reset_between_files):
                         os.system(f"{docker_compose} stop")
@@ -255,6 +269,7 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
                         file_run_count = 0
             for script_string in script_strings["should_fail"]:
                 if len(script_string) != 0:
+                    session.run_script(startup_code)
                     #Code found, run it in Deephaven
                     try:
                         skipped = False
@@ -268,6 +283,7 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
                         print(f"Unexpected error when trying to run code in {file_path}")
                         failed = True
 
+                    session.run_script(teardown_code)
                     #If reset is enabled, shut down and restart
                     if (reset_between_files is not None) and (file_run_count > reset_between_files):
                         os.system(f"{docker_compose} stop")
@@ -282,8 +298,6 @@ def run_code_main(host: str, port: int, session_type: str, read_files: set, max_
                     error_files.append(file_path)
                 else:
                     success_files.append(file_path)
-
-
         else:
             skipped_files.append(file_path)
 
