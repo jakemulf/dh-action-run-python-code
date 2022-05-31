@@ -26,12 +26,14 @@ for _item in list(set(globals()) - set(_old_globals)): del globals()[_item]; del
 GROOVY_START_TAG = "```groovy"
 GROOVY_END_TAG = "```"
 GROOVY_EXTENSION = ".groovy"
-GROOVY_STARTUP = """
-_old_globals = new LinkedHashSet(getBinding().getVariables().keySet())
-"""
-GROOVY_TEARDOWN = """
-getBinding().getVariables().keySet().retainAll(_old_globals)
-"""
+GROOVY_STARTUP = ""
+GROOVY_TEARDOWN = ""
+#GROOVY_STARTUP = """
+#_old_globals = new LinkedHashSet(getBinding().getVariables().keySet())
+#"""
+#GROOVY_TEARDOWN = """
+#getBinding().getVariables().keySet().retainAll(_old_globals)
+#"""
 
 def session_type_to_tags_and_extension(session_type):
     """
