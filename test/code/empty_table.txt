@@ -1,0 +1,7 @@
+A text file containing a script. This should NOT run
+
+```python
+from deephaven.TableTools import emptyTable
+
+result = emptyTable(5)
+```

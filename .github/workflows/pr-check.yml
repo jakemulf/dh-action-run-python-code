@@ -1,0 +1,31 @@
+name: PR check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pr_check:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+      - name: Build
+        run: |
+          curl https://raw.githubusercontent.com/deephaven/deephaven-core/main/containers/python/base/docker-compose.yml > ./test/docker-compose.yml
+          docker-compose -f ./test/docker-compose.yml up -d
+          pip install --upgrade pip
+          pip install -r source/requirements.txt
+      - name: Run sample
+        run: sh test/sample.sh
+        shell: sh
+      - name: Assert tables present
+        uses: deephaven/action-assert-dh-tables-present@main
+        with:
+          table-names: result0,result1,result2,result3,result4,result5
+          host: localhost
